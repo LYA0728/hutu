@@ -1,0 +1,40 @@
+.b-page {
+
+    margin: 0 auto;
+    background:#fff;
+    /* box-shadow:0 1px 2px 0 #e2e2e2 */
+}
+.b-page .page {
+    padding:30px 15px;
+	/* border-top: 1px solid #f6f6f7; */
+    background:#fff;
+    text-align:center;
+    overflow:hidden
+}
+
+.b-page .page .first,.b-page .page .prev,.b-page .page .current,.b-page .page .num,.b-page .page .current,.b-page .page .next,.b-page .page .end {
+    width: 34px;
+    height: 34px;
+	line-height: 34px;
+	/* padding:8px 8px; */
+    margin:0 5px;
+    display:inline-block;
+    color:#333;
+    border:1px solid #dcdcdc;
+	border-radius: 3px;
+	font-size:14px;
+}
+.b-page .page .first:hover,.b-page .page .prev:hover,.b-page .page .current:hover,.b-page .page .num:hover,.b-page .page .current:hover,.b-page .page .next:hover,.b-page .page .end:hover {
+    text-decoration:none;
+	color:#fff;
+    background:#f66
+}
+.b-page .page .current {
+    background-color:#f66;
+    color:#fff;
+    border:1px solid #f66;
+}
+.b-page .page .current:hover {
+    text-decoration:none;
+    background:#f66;
+}

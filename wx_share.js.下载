@@ -1,0 +1,75 @@
+$(function(){
+    var url = encodeURIComponent(location.href.split('#')[0]);
+    $.getJSON("//v.huatu.com/plugins/tools/wxShareJssdk.php?url="+url+"&callback=?", function(json){
+      wx.config({
+            debug: false,
+            appId: json.data.appId,
+            timestamp: json.data.timestamp,
+            nonceStr: json.data.nonceStr,
+            signature: json.data.signature,
+            jsApiList: [
+                // 所有要调用的 API 都要加到这个列表中
+                'onMenuShareTimeline',
+                'onMenuShareAppMessage',
+                'onMenuShareQQ'
+            ]
+        });
+    });
+  });
+  wx.ready(function () {
+    //通用设置
+    var $title = (typeof(title)=="undefined" || title=="") ? $('title').text().split('_')[0] : title;
+    var $desc = (typeof(desc)=="undefined" || desc=="") ? $("meta[name='description']").attr("content").split('_')[0] : desc;
+    var $link = (typeof(link)=="undefined" || link=="") ? "" : link;
+    var $imgUrl = (typeof(imgUrl)=="undefined" || imgUrl=="") ? "http://v.huatu.com/htNews/images/logo_huatu.jpg" : imgUrl;
+    //朋友圈
+    var $title_pyq = (typeof(title_pyq)=="undefined" || title_pyq=="") ? $title : title_pyq;
+    //微信分享
+    var $title_wx = (typeof(title_wx)=="undefined" || title_wx=="") ? $title : title_wx;
+    var $desc_wx = (typeof(desc_wx)=="undefined" || desc_wx=="") ? $desc : desc_wx;
+    //QQ分享
+    var $title_qq = (typeof(title_qq)=="undefined" || title_qq=="") ? $title : title_qq;
+    var $desc_qq = (typeof(desc_qq)=="undefined" || desc_qq=="") ? $desc : desc_qq;
+    
+    // 在这里调用 API
+    //获取“分享到朋友圈”按钮点击状态及自定义分享内容接口
+    wx.onMenuShareTimeline({
+        title: $title_pyq, // 分享标题
+        link: $link, // 分享链接
+        imgUrl: $imgUrl, // 分享图标
+        success: function () {
+            // 用户确认分享后执行的回调函数
+        },
+        cancel: function () {
+            // 用户取消分享后执行的回调函数
+        }
+    });
+    //获取“分享给朋友”按钮点击状态及自定义分享内容接口
+    wx.onMenuShareAppMessage({
+        title: $title_wx, // 分享标题
+        desc: $desc_wx, // 分享描述
+        link: $link, // 分享链接
+        imgUrl: $imgUrl, // 分享图标
+        type: 'link', // 分享类型,music、video或link，不填默认为link
+        dataUrl: '', // 如果type是music或video，则要提供数据链接，默认为空
+        success: function () { 
+            // 用户确认分享后执行的回调函数
+        },
+        cancel: function () { 
+            // 用户取消分享后执行的回调函数
+        }
+    });
+    //获取“分享到QQ”按钮点击状态及自定义分享内容接口
+    wx.onMenuShareQQ({
+        title: $title_qq, // 分享标题
+        desc: $desc_qq, // 分享描述
+        link: $link, // 分享链接
+        imgUrl: $imgUrl, // 分享图标
+        success: function () { 
+           // 用户确认分享后执行的回调函数
+        },
+        cancel: function () { 
+           // 用户取消分享后执行的回调函数
+        }
+    });
+  });

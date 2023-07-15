@@ -1,0 +1,369 @@
+/* ***********************自主上报开头  ************************/
+var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+
+ function InvalidCharacterError(message) {
+   this.message = message;
+ }
+ InvalidCharacterError.prototype = new Error ();
+ InvalidCharacterError.prototype.name = 'InvalidCharacterError';
+
+ // encoder
+ // [https://gist.github.com/999166] by [https://github.com/nignag]
+ function btoa1(input) {
+   var str = String (input);
+   for (
+     // initialize result and counter
+     var block, charCode, idx = 0, map = chars, output = '';
+     // if the next str index does not exist:
+     //   change the mapping table to "="
+     //   check if d has no fractional digits
+     str.charAt (idx | 0) || (map = '=', idx % 1);
+     // "8 - idx % 1 * 8" generates the sequence 2, 4, 6, 8
+     output += map.charAt (63 & block >> 8 - idx % 1 * 8)
+   ) {
+     charCode = str.charCodeAt (idx += 3 / 4);
+     if (charCode > 0xFF) {
+       throw new InvalidCharacterError ("'btoa' failed: The string to be encoded contains characters outside of the Latin1 range.");
+     }
+     block = block << 8 | charCode;
+   }
+   return output;
+ }
+
+ 
+function getCookie(name) 
+{ 
+    var arr,reg=new RegExp("(^| )"+name+"=([^;]*)(;|$)"); 
+　　 return (arr=document.cookie.match(reg))?unescape(arr[2]):null;
+}
+
+//第三方合作
+function setCookie(c_name, value, day, cookieDomain) {
+  var exdate = new Date();
+  exdate.setDate(exdate.getDate() + day);
+  cookieDomain = cookieDomain || ".huatu.com";
+  if(day >0)
+      var currentCookie =  c_name + "="+ value + ";expires=" + exdate.toGMTString() +";path=/;domain="+ cookieDomain;
+  else
+      var currentCookie =  c_name + "="+ value  +";path=/;domain="+ cookieDomain;
+
+  document.cookie = currentCookie;
+}
+
+
+
+function GetQueryStr(name) {
+  var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)')
+  var r = window.location.search.substr(1).match(reg)
+  if (r != null) return decodeURI(r[2])
+  return null
+}
+
+function parseQueryString(url) {
+  var obj = {};
+  var arr = [];
+
+  url = url.replace(/^.*?\?/, '');
+  url = url.replace(/#.*$/, '');
+  arr = url.split('&');
+
+  arr.forEach(function(el){
+    var r = el.match(/(.+)=(.*)/);
+      if (r) {
+        var key = r[1];
+        var value = r[2] || null;
+          obj[key] = value;
+      }
+  })
+  return obj;
+}
+
+
+//事件上报方法
+function commonEventUp(param){
+      if(!getCookie("htzxUps")) return;
+      var curUrl= JSON.parse(decodeURIComponent(getCookie("htzxUps")));
+      curUrl.curl = encodeURIComponent(window.location.href);
+      var data=  Object.assign(curUrl,param);
+      var base64Data = window.btoa(JSON.stringify(data));
+      loadImg(base64Data)
+}
+
+
+function isMobile() {
+  var mobile = navigator.userAgent.match(
+    /(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i
+  );
+  return mobile != null;
+}
+
+
+function clearUps(){
+  setCookie("htzxUps", '')
+  localStorage.setItem('visitorId',  '');
+}
+
+
+
+function loadImg(data,cb){      
+  var myParent = document.createElement("div");
+  var myImage = document.createElement("img");
+  myImage.src = "https://track.huatu.com/track.gif?data=" + data;
+  myParent.appendChild(myImage);
+  myImage.onload = function() {
+    if(cb) cb()
+  }
+}
+
+
+
+(function fd(){
+      var region= ".huatu.com";
+      var notAbleUrl=[ //这些模块不上报
+        "/mock/",
+        "/tiku/",
+        "/htzx/message.shtml",
+        "/teachers/",
+        "/beikao/",
+        '/htzx/app.shtml',
+        '/htzx/teacher-info.shtml',
+        '/police/',
+        '/htzx/user/',
+        '/news/'
+      ]
+
+      var isUp = notAbleUrl.filter(function(item){return  window.location.pathname.indexOf(item) > -1});
+
+      if(isUp && isUp.length > 0){
+        return
+      }
+      if(!window.btoa)  window.btoa = btoa1;
+
+      //自主上报逻辑
+      var upData={
+        referer:encodeURIComponent(document.referrer),//前置来源
+        curl:encodeURIComponent(window.location.href),
+        fr:0,//渠道来源（数字格式）
+        aid:0,//广告位id(数字格式
+        kid:0,//关键词唯一标识（数字格式）
+        mtt:0,//{matchtype}匹配模式（数字格式）
+        crt:0,//广告创意（数字格式）
+        adp:'',//展现排名（字母+数字格式）
+        pn:0,//搜索结果触发页面（数字格式）
+        gid:0,//360推广组唯一标识（数字格式）
+        pid:0,//360推广计划唯一标识（数字格式）
+        dv:'',//360推广点击设备来源（字母格式）
+        kd:'',//（进行UTF8转码，再进行URIencode编码）
+        pl:'',//广告获得点击时所在网站的域名/网站展位定位条件
+        uid: getUser().Uid,
+        anonId:getUser().AnonId,
+        eventId:1,
+        eventSource:2
+      }
+
+      var keyNum=['fr','aid','kid','mtt','crt','pn','gid','pid']
+
+      function guid() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+          var r = Math.random() * 16 | 0,
+            v = c == 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      }
+
+
+      function getUser(){
+            var visitorId ='';
+            if( localStorage.getItem('visitorId') ){
+                    visitorId = localStorage.getItem('visitorId');
+            }else{
+                    visitorId = guid();
+                    localStorage.setItem('visitorId',  visitorId);
+            }
+
+            return {
+                      Uid:getCookie("ucId")||'',
+                      AnonId:visitorId+''
+                   }
+      }
+
+
+      function isNewParam(){
+        var hasTc= false;
+        var obj= parseQueryString(window.location.href);
+        if(!obj.fr) return false;
+        Object.keys(upData).forEach(function(item,index){
+                      if(obj[item]){
+                          hasTc = true;
+                          if(keyNum.indexOf(item) > -1 ) {
+                            try {
+                              upData[item] = Number(obj[item])
+                            } catch (error) {
+                              upData[item] = obj[item]
+                            }
+                          }else{
+                            upData[item] = obj[item]
+                          }
+                      }
+          });
+          return hasTc
+      }
+
+      
+
+
+        if( isNewParam() ){//有推广链接
+              setCookie("htzxUps",JSON.stringify(upData), 1, region)
+              var base64Data = window.btoa(JSON.stringify(upData));
+              loadImg(base64Data)
+        }else if(getCookie("htzxUps")){//无推广参数，有本地参数
+              var curUrl= JSON.parse(decodeURIComponent(getCookie("htzxUps")));
+              if(!curUrl.fr) {
+                setCookie("htzxUps", '')
+                return;
+              }
+              curUrl.curl = encodeURIComponent(window.location.href);
+              setCookie("htzxUps",JSON.stringify(curUrl), 1, region);
+              var base64Data = window.btoa(JSON.stringify(curUrl));
+              loadImg(base64Data)
+        }else{//处理自然流量
+
+        }  
+}())
+
+/* ***********************自主上报结束 ************************/
+
+
+
+
+/* **********************神策部分 ***********************/
+jQuery.cookie = function(name, value, options) {
+  if (typeof value != 'undefined') { // name and value given, set cookie
+      options = options || {};
+      if (value === null) {
+          value = '';
+          options.expires = -1;
+      }
+      var expires = '';
+      if (options.expires && (typeof options.expires == 'number' || options.expires.toUTCString)) {
+          var date;
+          if (typeof options.expires == 'number') {
+              date = new Date();
+              date.setTime(date.getTime() + (options.expires * 24 * 60 * 60 * 1000));
+          } else {
+              date = options.expires;
+          }
+          expires = '; expires=' + date.toUTCString(); // use expires attribute, max-age is not supported by IE
+      }
+      var path = options.path ? '; path=' + options.path : '';
+      var domain = options.domain ? '; domain=' + options.domain : '';
+      var secure = options.secure ? '; secure' : '';
+      document.cookie = [name, '=', encodeURIComponent(value), expires, path, domain, secure].join('');
+  } else { // only name given, get cookie
+      var cookieValue = null;
+      if (document.cookie && document.cookie != '') {
+          var cookies = document.cookie.split(';');
+          for (var i = 0; i < cookies.length; i++) {
+              var cookie = jQuery.trim(cookies[i]);
+              // Does this cookie string begin with the name we want?
+              if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                  break;
+              }
+          }
+      }
+      return cookieValue;
+  }
+};
+
+
+(function(para) {
+  var p = para.sdk_url, n = para.name, w = window, d = document, s = 'script',x = null,y = null;
+  if(typeof(w['sensorsDataAnalytic201505']) !== 'undefined') {
+      return false;
+  }
+  w['sensorsDataAnalytic201505'] = n;
+  w[n] = w[n] || function(a) {return function() {(w[n]._q = w[n]._q || []).push([a, arguments]);}};
+  var ifs = ['track','quick','register','registerPage','registerOnce','trackSignup', 'trackAbtest', 'setProfile','setOnceProfile','appendProfile', 'incrementProfile', 'deleteProfile', 'unsetProfile', 'identify','login','logout','trackLink','clearAllRegister','getAppStatus'];
+  for (var i = 0; i < ifs.length; i++) {
+    w[n][ifs[i]] = w[n].call(null, ifs[i]);
+  }
+  if (!w[n]._t) {
+    x = d.createElement(s), y = d.getElementsByTagName(s)[0];
+    x.async = 1;
+    x.src = p;
+    x.setAttribute('charset','UTF-8');
+    y.parentNode.insertBefore(x, y);
+    w[n].para = para;
+  }
+})({
+  sdk_url: '//u3.huatu.com/bigdata/shence/sdk/sensorsdata.min.js',
+  heatmap_url: '//u3.huatu.com/bigdata/shence/sdk/heatmap.min.js',
+  name: 'sensors',
+  server_url: 'https://datax-api.huatu.com/sa?project=production',
+  show_log:false,
+ /*  source_channel:['ca_source'], */
+  source_channel: [
+    'ca_source',
+    'promoter_phone',
+    'activity_team',
+    'c_product',
+    'university',
+    'e_matchtype',
+    'e_adposition',
+  ],
+  heatmap:{},
+  preset_properties: {
+    latest_utm: true,
+    latest_traffic_source_type: true,
+    latest_search_keyword: true,
+    latest_referrer: true,
+    latest_referrer_host: true,
+    latest_landing_page: true,
+    url: true,
+    title: true
+}
+});
+
+sensors.registerPage({
+  business_line: '华图在线',
+  platform: 'PC',
+  product_name: '华图在线',
+  domain_first_classification: 'v'
+});
+if (jQuery.cookie('ucId')) {
+  sensors.login(jQuery.cookie('ucId'));
+}
+sensors.quick('autoTrack');
+
+if (GetQueryStr('jzl_kwd')) {
+  //sem相关
+  setCookie('jzl_kwd', window.location.href, 7, ".huatu.com")
+}
+
+var thirdPartyFrom = GetQueryStr('from')
+var thirdPartySource = GetQueryStr('source')
+if (thirdPartyFrom === 'Paper联盟' && thirdPartySource) {
+  var thirdPartyExpStart = new Date()
+  thirdPartyExpStart.setTime(thirdPartyExpStart.getTime() + 30 * 24 * 60 * 60 * 1000)
+  var thirdPartyInfo = {
+    orderSource: encodeURIComponent(thirdPartyFrom+'/'+thirdPartySource),
+    effectiveTime: thirdPartyExpStart.toGMTString()
+  }
+  setCookie("thirdPartyInfo", JSON.stringify(thirdPartyInfo) ,30, ".huatu.com")
+}
+
+/* **********************神策部分 ***********************/
+
+
+
+
+     
+     
+  
+
+
+
+
+
+

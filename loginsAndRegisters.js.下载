@@ -1,0 +1,685 @@
+$(function () {
+    //当前时间
+    curtt = new Date().getTime()
+    //读取用户信息检测用户是否登录
+    UserID = $.cookie('UserID')
+    userLoginName = $.cookie('UserName')
+    UserReName = $.cookie('UserReName') ? $.cookie('UserReName') : userLoginName
+    UserFace = $.cookie('UserFace')
+        ? $.cookie('UserFace').replace(/http:\/\/upload.htexam.net/, 'https://upload.htexam.com')
+        : 'https://v.huatu.com/home/images/defaultface_male25x25.gif'
+    fromuser = $.cookie('uniondata') ? $.cookie('uniondata') : ''
+
+    var phoneReg = /^[01][0-9]{10,11}$/;
+    var AjaxUrl = WX_API_HOST;
+    var AjaxUrlNs = NS_API_HOST;
+    var pathname = window.location.href
+    var locationOrigin = window.location.origin
+    //判断用户是否是管理员
+    blueUrl = $.cookie('blueUrl') ? $.cookie('blueUrl') : ''
+    //班主任管理
+    bzrflag = $.cookie('isHeadTeacher_' + userLoginName)
+    if (!bzrflag && userLoginName) {
+        bzrflag = isHeadTeacher()
+    }
+    //判断用户是否是会员
+    // memberFlag 会员状态标识 0未开启 1生效中 2已过期
+    isMember =$.cookie('isUserMember' + userLoginName)
+    if(!isMember && userLoginName)
+    {
+        res = isUserMember();
+        if(res.memberFlag == '1'){
+            $.cookie('isUserMember' + userLoginName, res.memberFlag, { expires: res.expireTime, path: '/' });
+            isMember =  res.memberFlag;
+        }else{
+            isMember = '0';
+        }
+    }
+    
+    if (1 == bzrflag) {
+        //写入cookie
+        $.cookie('isHeadTeacher_' + userLoginName, bzrflag, { expires: 30, path: '/' })
+    }
+    //判断题库是否需要登录
+    tikuLogin = $("#tikuLogin").val() ? $("#tikuLogin").val():1;
+
+    var hostname =  window.location.hostname
+    if (userLoginName == '' || userLoginName == null || !tikuLogin) {
+        var ntkuid = ''
+        var ntkusername = ''
+
+    }else{
+        admin = ''
+        var html = ''
+        html +=
+            '<div class="fun_userCenter">' +
+            '<div class="fun_login">' +
+            '<a href="/htzx/user/index.shtml#/personalCenter/myCourses">' +
+            '我的课程'+
+            '<img src="'+UserFace+'" class="fun_login_avatar"/>' +
+            '</a>';
+        html +='<ul class="fun_login_drag">';
+        if (blueUrl != '') {
+            html += '<li><a href='+BLUE_ADMIN_HOST+'/admin>管理员登录</a></li>'
+        }
+        html +='<li>';
+        if (bzrflag == '1') {
+            html +='<a href="/htzx/user/index.shtml#/personalCenter/ClassManagement">班级管理</a>'
+        }
+        html +='<a href="/htzx/user/index.shtml#/personalCenter/myAccount">我的订单</a>' +
+            '<a href="/tiku">我的题库</a></li>' +
+            '<li><a href="/newUser/logout.php">退出</a></li>' +
+            '</ul></div>';
+        html +=' <div class="fun_member openMemberBtn">';
+        if(isMember == '1'){
+            html += '<i class="fun_member_icon valid"></i>';
+        }else{
+            html += '<i class="fun_member_icon void" ></i>';
+        }
+        html += '</div>'+
+        '</div>';
+        $('#loginReg').replaceWith(html)
+        var ntkuid = UserID
+        var ntkusername = userLoginName
+    }
+
+
+    function isHeadTeacher() {
+        var flag = '0'
+        $.ajax({
+            type: 'GET',
+            async: false,
+            url: AjaxUrl + 'lumenapi/v4/pc/classmanager/class_name',
+            data: {
+                userName: userLoginName
+            },
+            success: function(res) {
+                if (res.code == 10000) {
+                    flag = res.data
+                }
+            },
+            error: function(err) {
+                console.log(err)
+            }
+        })
+        return flag
+    }
+
+    refresh();
+
+    function refresh() {
+        $.ajax({
+            async: true,
+            type: 'get',
+            url: AjaxUrl+'lumenapi/v4/common/user/captchaInfo',
+            data: {},
+            dataType: 'json',
+            success: function (data) {
+                $('#imgCode').attr('src', data.data.captchaUrl);
+                $('#captchaUuid').attr('value', data.data.captchaUuid);
+            },
+        });
+    }
+
+    //刷新验证码
+    $('.htzx_code_refresh').click(function () {
+        refresh();
+    });
+
+    //登录两种方式切换
+    $('#login_type_switch').click(function () {
+        if ($(this).text() == '短信验证码登录') {
+            $(this).text('账号密码登录');
+            $(this).attr('data-type', 'message');
+            $('#login_type_password').hide();
+            $('#login_type_message').show();
+        } else {
+            $(this).text('短信验证码登录');
+            $(this).attr('data-type', 'password');
+            $('#login_type_password').show();
+            $('#login_type_message').hide();
+        }
+        $('#loginform')[0].reset(); //表单重置 
+    });
+
+    //用户名验证
+    function validateUnserName(userName) {
+        if (userName) {
+            //是否为空
+            $('#login_username').removeClass('errorTips');
+            $('#login_username .error_tips').text('');
+            if (Number(userName)) {
+                //手机号判断
+                if (phoneReg.test(userName)) {
+                    $('#login_username').removeClass('errorTips');
+                    $('#login_username .error_tips').text('');
+                    return true;
+                } else {
+                    $('#login_username').addClass('errorTips');
+                    $('#login_username .error_tips').text('手机号格式不正确');
+                    return false;
+                }
+            } else {
+                return true; //用户名判断
+            }
+        } else {
+            $('#login_username').addClass('errorTips');
+            $('#login_username .error_tips').text('手机号不能为空');
+            return false;
+        }
+    }
+    $('#loginName').keyup(function () {
+        var userName = $(this).val();
+        validateUnserName(userName);
+    });
+
+    //验证码验证
+    function validateCode(code) {
+        if (code) {
+            //是否为空
+            $('#login_code').removeClass('errorTips');
+            $('#login_code .error_tips').text('');
+            return true;
+        } else {
+            $('#login_code').addClass('errorTips');
+            $('#login_code .error_tips').text('验证码不能为空');
+            return false;
+        }
+    }
+    $('#phone_yzm01').keyup(function () {
+        var code = $(this).val();
+        validateCode(code);
+    });
+
+    //验证码验证
+    function validateMessageCode(code) {
+        if (code) {
+            //是否为空
+            $('#login_type_message').removeClass('errorTips');
+            $('#login_type_message .error_tips').text('');
+            return true;
+        } else {
+            $('#login_type_message').addClass('errorTips');
+            $('#login_type_message .error_tips').text('验证码不能为空');
+            return false;
+        }
+    }
+
+    //验证密码
+    function validatePassword(Password) {
+        if (Password) {
+            //是否为空
+            $('#login_type_password').removeClass('errorTips');
+            $('#login_type_password .error_tips').text('');
+            return true;
+        } else {
+            $('#login_type_password').addClass('errorTips');
+            $('#login_type_password .error_tips').text('密码不能为空');
+            return false;
+        }
+    }
+    $('#passWord').keyup(function () {
+        var Password = $(this).val();
+        validatePassword(Password);
+    });
+
+    //登录
+    $('#loginButton').click(function () {
+        var loginType = $('#login_type_switch').attr('data-type');
+        var loginName = $('#loginName').val();
+        var code = $('#phone_yzm01').val();
+        var qrcode = $('#phone_yzm').val();
+        var userName = 1
+        var passWord = $('#passWord').val();
+        if (loginType == 'password') {
+            //账户密码登录
+            if (!validateUnserName(loginName)) return; //用户名判断
+            if (!validatePassword(passWord)) return; //密码判断
+            if (!validateCode(code)) return; //验证码判断
+            login(loginName, userName, passWord, loginType);
+        } else if (loginType == 'message') {//短信验证登录
+            if (!validateUnserName(loginName)) return; //用户名判断
+            if (!validateCode(code)) return;//验证码判断
+            if (!validateMessageCode(qrcode)) return; //短信验证码判断
+            //短信登录
+            codeLogin(loginName, userName, qrcode);
+        }
+    });
+
+    //账户密码登录
+    function login(loginName, userName, passWord, loginType) {
+        var ComeUrl = $('#ComeUrl').val()
+        var from = $('#from').val();
+        var synlogin = $('#synlogin').attr('checked') ? 1 : 0; //是否同步登录
+        var captchaWeb = $('#phone_yzm01').val();
+        var captchaUuid = $('#captchaUuid').val();
+        var source = '';
+
+        var synlogin = 0; //是否同步登录
+        var pciconcheckbox = $('#loginform .handleCheckBox').hasClass('pciconxuanzhong') //30天免登陆  true / false
+        var isSavePwd = pciconcheckbox ? 1 : 0; //30天免登陆  true / false
+
+        var anonymousId = '1';
+        if (typeof sensors != 'undefined') {
+            sensors.quick('isReady', function () {
+                anonymousId = sensors.store.getDistinctId();
+            });
+        }
+
+        //是否从网申入口发起
+        var channelType = "";
+        if (window.location.href.indexOf("20210830resume") != -1) {
+            channelType = "3001";
+        }
+
+        $.ajax({
+            async: true,
+            type: 'post',
+            url: AjaxUrl+'lumenapi/v4/common/user/user_login',
+            data: {
+                loginname: loginName,
+                username: userName,
+                password: passWord,
+                synlogin: synlogin,
+                from: from,
+                anonymousId: anonymousId,
+                captchaWeb: captchaWeb,
+                captchaUuid: captchaUuid,
+                source: source,
+                channelType: channelType,
+                newCpsData: $.cookie('newcpsdata')
+            },
+            dataType: 'json',
+            success: function (json) {
+                if (json.code > 0) {
+                    $('.htzx_modBg_dialog,#loginDialog').hide();
+                    if(getQueryString('comeUrl') == 'retrieve'){
+                        var jumpUrl = '/'
+                    }else{
+                        var jumpUrl = pathname;
+                    }
+
+                    var loginUrl = '/newUser/login.php' + '?loginParm=' + json.data.loginParm + '&isSavePwd=' + isSavePwd + '&synlogin=' + synlogin + '&ComeUrl=' + encodeURIComponent(jumpUrl) + '&passwd=' + encodeURIComponent(passWord) + '&loginType=' + loginType;
+                    if (synlogin) {
+                        document.write(json.data.ucsynlogin);
+                        setTimeout(function () {
+                            window.location.href = loginUrl;
+                        }, 1000);
+                    } else {
+                        window.location.href = loginUrl;
+                    }
+                } else {
+                    $('#login_code .error_tips').html(json.msg);
+                    //登录失败，刷新验证吗
+                    refresh();
+                }
+            },
+        });
+    }
+
+    //短信验证码登录
+    function codeLogin(loginName, userName, phoneCode) {
+        var ComeUrl = $('#ComeUrl').val();
+        var pciconcheckbox = $('#loginform .handleCheckBox').hasClass('pciconxuanzhong') //30天免登陆  true / false
+        var isSavePwd = pciconcheckbox ? 1 : 0; //30天免登陆  true / false
+        var synlogin = $('#synlogin').attr('checked') ? 1 : 0;
+        var captchaWeb = $('#phone_yzm01').val();
+        var captchaUuid = $('#captchaUuid').val();
+        var loginType = $('#loginType').val();
+        var source = $('#loginFrom').val();
+        $('.loginNow').show();
+        var anonymousId = '';
+        if (typeof sensors != 'undefined') {
+            sensors.quick('isReady', function () {
+                anonymousId = sensors.store.getDistinctId();
+            });
+        }
+
+        //是否从网申入口发起
+        var channelType = "";
+        if (window.location.href.indexOf("20210830resume") != -1) {
+            channelType = "3001";
+        }
+
+        $.ajax({
+            async: true,
+            type: 'post',
+            url: AjaxUrl + 'lumenapi/v4/common/user/user_captcha_login',
+            data: {
+                mobile: loginName,
+                captchaWeb: captchaWeb,
+                captchaUuid: captchaUuid,
+                code: phoneCode,
+                anonymousId: anonymousId,
+                source: source,
+                channelType: channelType,
+                newCpsData: $.cookie('newcpsdata')
+            },
+            dataType: 'json',
+            success: function (data) {
+                console.log(data)
+                if (data.code > 0) {
+                    $('.htzx_modBg_dialog,#loginDialog').hide();
+                    if(getQueryString('comeUrl') == 'retrieve'){
+                        var jumpUrl = '/'
+                    }else{
+                        var jumpUrl = pathname;
+                    }
+                    var loginUrl =
+                        '/newUser/login.php?loginParm=' +
+                        data.data.loginParm +
+                        '&isSavePwd=' +
+                        isSavePwd +
+                        '&synlogin=' +
+                        synlogin +
+                        '&ComeUrl=' +
+                        encodeURIComponent(jumpUrl) +
+                        '&loginType=' +
+                        loginType;
+                    window.location.href = loginUrl;
+                } else {
+                    $('#login_code .error_tips').html(json.msg);
+                }
+            },
+        });
+    }
+
+    //发送验证码
+    $('#jq_sendMes').click(function () {
+        var $this = $(this);
+        var loginName = $('#loginName').val();
+        var code = $('#phone_yzm01').val();
+        //用户名判断
+        if (!validateUnserName(loginName)) return;
+        //验证码判断
+        if (!validateCode(code)) return;
+        $.ajax({
+            async: true,
+            type: 'GET',
+            url: AjaxUrl + 'lumenapi/v4/common/message/send_by_java',
+            data: { mobile: loginName },
+            dataType: 'json',
+            success: function (data) {
+                if (data.code > 0) {
+                    var messageCDHtml =
+                        '<span class="sendTime" name="sendTime"><span name="second">60</span>秒后重新发送</span>';
+                    $this.html(messageCDHtml);
+                    times = setInterval(function () {
+                        var second = $('#login_type_message .sendTime span').text();
+                        if (second == 1) {
+                            $this.html('发送短信验证码');
+                            clearInterval(times);
+                        } else {
+                            $('#login_type_message .sendTime span').text(--second);
+                        }
+                    }, 1000);
+                } else {
+                    $('#login_type_message .error_tips').text(data.msg);
+                }
+            },
+        });
+    });
+
+    //获取url参数
+    function getQueryString(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+        var r = window.location.search.substr(1).match(reg);
+        if (r != null) return decodeURI(r[2]);
+        return '';
+    }
+
+    /**********************注册********************************/
+
+    $("#phoneNumber").focus();//刷新或者加载后指定输入焦点
+    $("#phoneNumber,#phonePassword,#imgCaptcha,#captcha").val("");//清空验证码内容
+    //输入登录名时隐藏提示信息
+
+    //验证密码
+    function validateRegPassword(Password) {
+        if (Password) {
+            if(Password.length < 6){
+                //是否为空
+                $('#reg_password').addClass('errorTips');
+                $('#reg_password .error_tips').text('密码长度不能小于6位');
+                return false;
+            }else if(Password.length > 20){
+                $('#reg_password').addClass('errorTips');
+                $('#reg_password .error_tips').text('密码长度不能大于20位');
+                return false;
+            }else{
+                $('#reg_password').removeClass('errorTips');
+                $('#reg_password .error_tips').text('');
+                return true;
+            }
+        } else {
+            $('#reg_password').addClass('errorTips');
+            $('#reg_password .error_tips').text('密码不能为空');
+            return false;
+        }
+    }
+    $('#phonePassword').keyup(function () {
+        var Password = $(this).val();
+        validateRegPassword(Password);
+        var loginName = $("#phoneNumber").val();
+        var captcha = $("#captcha").val();
+        if(validateRegCode(captcha) && validateRegPassword(Password) && validateRegUserName(loginName)){
+            $("#btn_regisert").removeClass("htzx_reg_btn htzx_reg_btn_disable").addClass("htzx_reg_btn")
+        }else{
+            $("#btn_regisert").removeClass("htzx_reg_btn").addClass("htzx_reg_btn htzx_reg_btn_disable")
+        }
+    });
+
+    //用户名验证
+    function validateRegUserName(userName) {
+        if (userName) {
+            //是否为空
+            $('#reg_phone').removeClass('errorTips');
+            $('#reg_phone .error_tips').text('');
+            //手机号判断
+            if (phoneReg.test(userName)) {
+                $('#reg_phone').removeClass('errorTips');
+                $('#reg_phone .error_tips').text('');
+                return true;
+            } else {
+                $('#reg_phone').addClass('errorTips');
+                $('#reg_phone .error_tips').text('手机号格式不正确');
+                return false;
+            }
+
+        } else {
+            $('#reg_phone').addClass('errorTips');
+            $('#reg_phone .error_tips').text('手机号不能为空');
+            return false;
+        }
+    }
+    $('#phoneNumber').keyup(function () {
+        var userName = $(this).val();
+        validateRegUserName(userName);
+        var loginPwd = $("#phonePassword").val();
+        var captcha = $("#captcha").val();
+        if(validateRegCode(captcha) && validateRegPassword(loginPwd) && validateRegUserName(userName)){
+            $("#btn_regisert").removeClass("htzx_reg_btn htzx_reg_btn_disable").addClass("htzx_reg_btn")
+        }else{
+            $("#btn_regisert").removeClass("htzx_reg_btn").addClass("htzx_reg_btn htzx_reg_btn_disable")
+        }
+    });
+
+    //验证码验证
+    function validateRegCode(code) {
+        if (code) {//是否为空
+            $('#reg_type_code').removeClass('errorTips');
+            $('#reg_type_code .error_tips').text('');
+            return true;
+        } else {
+            $('#reg_type_code').addClass('errorTips');
+            $('#reg_type_code .error_tips').text('验证码不能为空');
+            return false;
+        }
+    }
+    $('#captcha').keyup(function () {
+        var code = $(this).val();
+        validateRegCode(code)
+        var loginName = $("#phoneNumber").val();
+        var loginPwd = $("#phonePassword").val();
+        if(validateRegCode(code) && validateRegPassword(loginPwd) && validateRegUserName(loginName)){
+            $("#btn_regisert").removeClass("htzx_reg_btn htzx_reg_btn_disable").addClass("htzx_reg_btn")
+        }else{
+            $("#btn_regisert").removeClass("htzx_reg_btn").addClass("htzx_reg_btn htzx_reg_btn_disable")
+        }
+    });
+
+    //点击发送验证码
+    $("#jq_sendRegcode").click(function(){
+        var $this = $(this);//ajax里面使用$(this)无效，转换为变量使用
+        var loginName = $("#phoneNumber").val();
+        var imgCode = $("#imgCaptcha").val();
+        //手机号判断
+        if (phoneReg.test(loginName)) {
+            $.ajax({
+                async: true,
+                type: "GET",
+                url: AjaxUrl+"lumenapi/v4/common/message/send_by_java",
+                data: {mobile: loginName},
+                dataType: "jsonp",
+                jsonp: "callback",
+                jsonpCallback:"callbackSendCode",
+                success: function(json){
+                    if(json.code == 10000){
+                        $("#reg_type_code .error_tips").text('短信发送成功，请查看短信获取注册验证码');
+                        var regHtml =
+                            '<span class="sendTime" name="sendTime"><span name="second">60</span>秒后重新发送</span>';
+                        $this.html(regHtml);
+                        times = setInterval(function () {
+                            var second = $('#reg_type_code .sendTime span').text();
+                            if (second == 1) {
+                                $this.html('获取验证码');
+                                clearInterval(times);
+                            } else {
+                                $('#reg_type_code .sendTime span').text(--second);
+                            }
+                        }, 1000);
+                    }else{
+                        $("#captcha").focus();
+                        $("#reg_type_code .error_tips").text(json.msg);
+                    }
+                }
+            });
+        }else{
+            if(loginName.length == 0) {
+                $("#reg_phone .error_tips").text('请输入您的手机号');
+            }else{
+                $('#reg_phone .error_tips').text('手机号格式不正确');
+            }
+        }
+    });
+
+    //点击注册
+    $("#btn_regisert").click(function () {
+        var $this = $(this);//ajax里面使用$(this)无效，转换为变量使用
+        //用户注册所需信息
+        var loginName = $("#phoneNumber").val();
+        var loginPwd = $("#phonePassword").val();
+        var captcha = $("#captcha").val();
+        var ComeUrl = $("#ComeUrl").val();
+        var source = $("#regFrom").val();
+        var _id = $("#_id").val();
+
+        //是否从网申入口发起
+        var channelType = "";
+        if (window.location.href.indexOf("20210830resume") != -1) {
+            channelType = "3001";
+        }
+
+        if (!validateRegUserName(loginName)) return; //用户名判断
+        if (!validateRegPassword(loginPwd)) return; //密码判断
+        if (!validateRegCode(captcha)) return; //验证码判断
+
+        var pciconcheckbox = $('#privacy_agreement .handleCheckBox').hasClass('pciconxuanzhong'); //是否勾选隐私协议  true / false
+
+        if(pciconcheckbox){
+            $('#privacy_agreement .error_tips').text('');
+
+            var anonymousId = '';
+            if (typeof sensors != 'undefined') {
+                sensors.quick('isReady',function(){
+                    anonymousId = sensors.store.getDistinctId();
+                });
+            }
+            $.ajax({
+                async: true,
+                type: "GET",
+                url: "https://"+hostname+"/newUser/reg.php",
+                data: {action: "reg", loginName: loginName, password: loginPwd, captcha: captcha, ComeUrl: ComeUrl, _id: _id, anonymousId: anonymousId, source: source, uniondata: $.cookie('uniondata'), channelType: channelType, newcpsdata: $.cookie('newcpsdata')},
+                dataType: "json",
+                // xhrFields: {
+                //     withCredentials: true //允许跨域带Cookie
+                // },
+                success: function(json){
+                    if(json.code == 1){
+                        if(json.data && json.data.loginParm){
+                            $.cookie('isRegister', 1, { expires: 1, path: '/' });
+                            var locationHref = locationOrigin + "/newUser/login.php?loginParm="+json.data.loginParm+"&ComeUrl="+pathname;
+                            window.location.href = locationHref;
+                        }else{
+                            alert('注册成功，请前往登录');
+                            $('.htzx_modBg_dialog,#regDialog').hide();
+                            $('.htzx_modBg_dialog,#loginDialog').show();
+                        }
+                    }else if(json.code == -12){
+                        $("#reg_phone .error_tips").text(json.msg);
+                    }else if(json.code == -102){
+                        $("#reg_password .error_tips").html('该手机号已经注册了，要<a href="/newUser/findPwd.php" class="underline">找回密码？</a>');
+                    }else if(json.code == -101){
+                        $("#reg_type_code .error_tips").text(json.msg);
+                    }else{
+                        $("#reg_return_result .error_tips").text(json.msg);
+                    }
+                }
+            });
+        }else{
+            $('#privacy_agreement .error_tips').text('请勾选隐私协议');
+        }
+    })
+
+    //按下回车键登录
+    $(document).keydown(function (event) {
+        var key_code = event.which;
+        if (key_code == 13 && window.htzxEntryType!='' && window.htzxEntryType=='reg') {
+            $('#btn_regisert').click();
+        }else if (key_code == 13 && window.htzxEntryType!='' && window.htzxEntryType=='login') {
+            $('#loginButton').click();
+        }
+    });
+
+    //唤醒登录
+    commonWakeUpLogin = function (){
+        $('.htzx_modBg_dialog,#loginDialog').show();
+        window.htzxEntryType = 'login';
+        refresh();
+    }
+
+    //判断是否是会员，是否子有效期内
+    function isUserMember() {
+        var flag = false
+        $.ajax({
+            type: 'GET',
+            async: false,
+            url: AjaxUrlNs + 'u/v2/member/user/icon',
+            // data: {
+            //     userName: userLoginName
+            // },
+            headers: {
+                'token': $.cookie('ht_token')
+            },
+            success: function(res) {
+                if (res.code == 1000000 && res.data) {
+                    flag = res.data;
+                }
+            },
+            error: function(err) {
+                console.log(err)
+            }
+        })
+        return flag;
+    }
+});
